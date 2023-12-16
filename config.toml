@@ -1,0 +1,22 @@
+[common]
+enable_log = true
+
+[[ftp_servers]]
+name = "test"
+ftp_host = "localhost"
+ftp_username = "anonymous"
+ftp_password = ""
+watching_path = "/"
+backup_path = "E:\\ftp_backup_test"
+archive_path = "E:\\ftp_archive_test"
+checking_delay = 5
+
+[[ftp_servers]]
+name = "test2"
+ftp_host = "localhost"
+ftp_username = "anonymous"
+ftp_password = ""
+watching_path = "/test"
+backup_path = "E:\\ftp_backup_test2"
+archive_path = "E:\\ftp_archive_test2"
+checking_delay = 5
