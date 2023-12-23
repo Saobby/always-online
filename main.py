@@ -19,7 +19,7 @@ def ftp_scan(session: ftp_core.FtpSession, path: str, callback=None, onerror_cal
     while True:
         try:
             objs = session.list_obj(path)
-        except (ConnectionAbortedError, ConnectionRefusedError):
+        except ftp_core.FtpConnectionError:
             if onerror_callback is not None:
                 onerror_callback("Failed to connect to the FTP server.")
             time.sleep(5)
@@ -55,7 +55,7 @@ def log_error(message):
     global enable_log
     if enable_log:
         with open("error.log", "a", encoding="utf-8") as f:
-            f.write("[{}] {}".format(ts2str(time.time(), "%Y/%m/%d %H:%M:%S"), message))
+            f.write("[{}] {}\n".format(ts2str(time.time(), "%Y/%m/%d %H:%M:%S"), message))
 
 
 def clean_empty_folder(folder_path, keep_root_folder=False):
@@ -73,7 +73,7 @@ def clean_empty_folder(folder_path, keep_root_folder=False):
             pass
 
 
-def ts2str(ts, fmt="%Y年%m月%d日_%H时%M分%S秒"):
+def ts2str(ts, fmt="%Y-%m-%d_%H;%M;%S"):
     time_array = time.localtime(ts)
     return time.strftime(fmt, time_array)
 
@@ -95,11 +95,10 @@ def gen_save_func(session: ftp_core.FtpSession, base_path: str, old_objs: dict, 
         if key in old_objs and obj["size"] == old_objs[key]["size"] \
                 and obj["modify_time"] == old_objs[key]["modify_time"]:
             return
-        # print("Found new: {}".format(key))
         while True:
             try:
                 file_data = session.get_obj(key)
-            except (ConnectionAbortedError, ConnectionRefusedError):
+            except ftp_core.FtpConnectionError:
                 log_error("Failed to connect to the FTP server to download file.")
                 time.sleep(5)
             except:
@@ -129,10 +128,10 @@ def archive_file(key, archive_path, backup_path):
                                                             gen_random_str(8), key.split("/")[-1]))
         except:
             log_error("Failed to archive file: {}".format(traceback.format_exc()))
-        # print("Archived: {}".format(key))
 
 
-def watch_ftp(host, watch_path, backup_path, archive_path, check_delay, username="anonymous", password="", name=""):
+def watch_ftp(host, watch_path, backup_path, archive_path, check_delay, username="anonymous", password="", name="",
+              encoding="utf-8"):
     backup_path = backup_path.replace("\\", "/")
     archive_path = archive_path.replace("\\", "/")
     if backup_path[-1] == "/":
@@ -143,7 +142,7 @@ def watch_ftp(host, watch_path, backup_path, archive_path, check_delay, username
     session = None
     while not success:
         try:
-            session = ftp_core.FtpSession(host, username, password)
+            session = ftp_core.FtpSession(host, username, password, encoding)
         except:
             log_error("Failed to connect to the FTP server: {}".format(host))
             time.sleep(check_delay)
@@ -159,7 +158,6 @@ def watch_ftp(host, watch_path, backup_path, archive_path, check_delay, username
     new_objs = {}
     while True:
         ftp_scan(session, watch_path, gen_save_func(session, backup_path, old_objs, new_objs, archive_path), log_error)
-        # print(old_objs.keys(), new_objs.keys())
         deleted_objs = [key for key, _ in old_objs.items() if key not in new_objs]
         for o in deleted_objs:
             archive_file(o, archive_path, backup_path)
@@ -183,7 +181,7 @@ def run():
     ftp_servers = config["ftp_servers"]
     threads = [threading.Thread(target=watch_ftp, args=(s["ftp_host"], s["watching_path"], s["backup_path"],
                                                         s["archive_path"], s["checking_delay"], s["ftp_username"],
-                                                        s["ftp_password"], s["name"]))
+                                                        s["ftp_password"], s["name"], s["encoding"]))
                for s in ftp_servers]
     for thread in threads:
         thread.start()
@@ -194,4 +192,3 @@ if __name__ == "__main__":
         run()
     except:
         log_error("An uncaught error occurred while running.\n{}".format(traceback.format_exc()))
-    # TODO: 修复文件名中有多个空格会出问题的bug

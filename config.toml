@@ -7,9 +7,10 @@ ftp_host = "localhost"
 ftp_username = "anonymous"
 ftp_password = ""
 watching_path = "/"
-backup_path = "E:\\ftp_backup_test"
-archive_path = "E:\\ftp_archive_test"
+backup_path = "E:\\ftp_backup_test_3"
+archive_path = "E:\\ftp_archive_test_3"
 checking_delay = 5
+encoding = "gbk"
 
 [[ftp_servers]]
 name = "test2"
@@ -17,6 +18,7 @@ ftp_host = "localhost"
 ftp_username = "anonymous"
 ftp_password = ""
 watching_path = "/test"
-backup_path = "E:\\ftp_backup_test2"
-archive_path = "E:\\ftp_archive_test2"
+backup_path = "E:\\ftp_backup_test_4"
+archive_path = "E:\\ftp_archive_test_4"
 checking_delay = 5
+encoding = "gbk"

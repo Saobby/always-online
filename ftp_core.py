@@ -1,68 +1,58 @@
-import ftplib
+import ftputil
+import ftputil.error
+import traceback
+
+
+class FtpConnectionError(Exception):
+    def __init__(self, msg):
+        self.message = msg
+
+    def __str__(self):
+        return self.message
 
 
 class FtpSession:
-    def __init__(self, host, username="anonymous", password=""):
-        self._ftp_obj = ftplib.FTP(host)
-        self._ftp_obj.login(username, password)
+    def __init__(self, host, username="anonymous", password="", encoding="gbk"):
+        try:
+            self._ftp_obj = ftputil.FTPHost(host, username, password, encoding=encoding)
+        except ftputil.error.FTPOSError:
+            raise FtpConnectionError(traceback.format_exc())
         self._username = username
         self._password = password
         self._host = host
+        self._encoding = encoding
 
-    def list_obj(self, path):
-        ret = []
-
-        def get_permission_num(permission):
-            mapping = {"-": 0, "w": 2, "r": 4, "x": 1}
-            num = 0
-            for i in permission:
-                num += mapping[i]
-            return num
-
-        def process(*args):
-            for obj in args:
-                data = {}
-                p = obj.split(" ")
-                p = [j for j in p if j != ""]
-                if p[0][0] == "-":
-                    data["type"] = "file"
-                elif p[0][0] == "d":
-                    data["type"] = "dir"
-                else:
-                    data["type"] = p[0][0]
-                data["owner_permission"] = get_permission_num(p[0][1:4])
-                data["group_permission"] = get_permission_num(p[0][4:7])
-                data["user_permission"] = get_permission_num(p[0][7:10])
-                data["size"] = int(p[4])
-                data["modify_time"] = " ".join(p[5:8])
-                data["name"] = " ".join(p[8:])
-                ret.append(data)
+    def list_obj(self, path: str, retry=True):
+        path = path.replace("\\", "")
+        if path == "":
+            path = "/"
+        if path[-1] != "/":
+            path += "/"
         try:
-            self._ftp_obj.cwd(path)
-            self._ftp_obj.dir(process)
-        except (ConnectionAbortedError, ConnectionRefusedError):
-            self._ftp_obj = ftplib.FTP(self._host)
-            self._ftp_obj.login(self._username, self._password)
-            ret = []
-            self._ftp_obj.cwd(path)
-            self._ftp_obj.dir(process)
+            ret = [{"type": {True: "dir", False: "file"}[self._ftp_obj.path.isdir(path+obj)],
+                    "name": obj, "modify_time": self._ftp_obj.path.getmtime(path+obj),
+                    "size": self._ftp_obj.path.getsize(path+obj)}
+                   for obj in self._ftp_obj.listdir(path)]
+        except ftputil.error.FTPOSError:
+            if retry:
+                try:
+                    self._ftp_obj = ftputil.FTPHost(self._host, self._username, self._password, encoding=self._encoding)
+                    return self.list_obj(path, retry=False)
+                except ftputil.error.FTPOSError:
+                    raise FtpConnectionError(traceback.format_exc())
+            else:
+                raise FtpConnectionError(traceback.format_exc())
         return ret
 
-    def get_obj(self, key):
-        ret = []
-
-        def process(*args):
-            for i in args:
-                ret.append(i)
-
+    def get_obj(self, path):
         try:
-            self._ftp_obj.retrbinary("RETR {}".format(key), process)
-        except (ConnectionAbortedError, ConnectionRefusedError):
-            self._ftp_obj = ftplib.FTP(self._host)
-            self._ftp_obj.login(self._username, self._password)
-            ret = []
-            self._ftp_obj.retrbinary("RETR {}".format(key), process)
-        return b"".join(ret)
+            return self._ftp_obj.open(path, "rb").read()
+        except ftputil.error.FTPOSError:
+            try:
+                self._ftp_obj = ftputil.FTPHost(self._host, self._username, self._password, encoding=self._encoding)
+                return self._ftp_obj.open(path, "rb").read()
+            except ftputil.error.FTPOSError:
+                raise FtpConnectionError(traceback.format_exc())
 
     def close(self):
         self._ftp_obj.close()
@@ -70,5 +60,6 @@ class FtpSession:
 
 if __name__ == "__main__":
     a = FtpSession("localhost")
-    print(a.list_obj("/test/"))
+    print(a.list_obj("/"))
+    print(a.get_obj("/test.txt"))
 
