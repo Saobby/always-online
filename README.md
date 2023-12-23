@@ -18,6 +18,7 @@
   + `backup_path`: 备份的文件放在哪里
   + `archive_path`: 备份的文件的历史版本放在哪里
   + `checking_delay`: 每遍历完一次FTP服务器延时几秒
+  + `encoding`: 解码时所用的字符集，填错会导致文件名乱码，程序异常等问题
 
 ## 其它
 ![](https://gp0.saobby.com/i/YDWiYODJMHNFr3vP.PNG)
