@@ -44,14 +44,18 @@ class FtpSession:
                 raise FtpConnectionError(traceback.format_exc())
         return ret
 
-    def get_obj(self, path):
+    def get_obj(self, path, retry=True):
         try:
-            return self._ftp_obj.open(path, "rb").read()
+            with self._ftp_obj.open(path, "rb") as s:
+                return s.read()
         except ftputil.error.FTPOSError:
-            try:
-                self._ftp_obj = ftputil.FTPHost(self._host, self._username, self._password, encoding=self._encoding)
-                return self._ftp_obj.open(path, "rb").read()
-            except ftputil.error.FTPOSError:
+            if retry:
+                try:
+                    self._ftp_obj = ftputil.FTPHost(self._host, self._username, self._password, encoding=self._encoding)
+                    return self.get_obj(path, False)
+                except ftputil.error.FTPOSError:
+                    raise FtpConnectionError(traceback.format_exc())
+            else:
                 raise FtpConnectionError(traceback.format_exc())
 
     def close(self):

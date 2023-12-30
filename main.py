@@ -85,7 +85,8 @@ def gen_random_str(lens=64):
     return ret
 
 
-def gen_save_func(session: ftp_core.FtpSession, base_path: str, old_objs: dict, new_objs: dict, archive_path):
+def gen_save_func(session: ftp_core.FtpSession, base_path: str, old_objs: dict, new_objs: dict, archive_path,
+                  data_file_path):
     base_path = base_path.replace("\\", "/")
     if base_path[-1] == "/":
         base_path = base_path[:-1]
@@ -95,6 +96,11 @@ def gen_save_func(session: ftp_core.FtpSession, base_path: str, old_objs: dict, 
         if key in old_objs and obj["size"] == old_objs[key]["size"] \
                 and obj["modify_time"] == old_objs[key]["modify_time"]:
             return
+        current_objs = old_objs.copy()
+        for k, v in new_objs.items():
+            current_objs[k] = v
+        with open(data_file_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps(current_objs))
         while True:
             try:
                 file_data = session.get_obj(key)
@@ -157,7 +163,8 @@ def watch_ftp(host, watch_path, backup_path, archive_path, check_delay, username
         old_objs = {}
     new_objs = {}
     while True:
-        ftp_scan(session, watch_path, gen_save_func(session, backup_path, old_objs, new_objs, archive_path), log_error)
+        ftp_scan(session, watch_path, gen_save_func(session, backup_path, old_objs, new_objs, archive_path,
+                                                    data_file_path), log_error)
         deleted_objs = [key for key, _ in old_objs.items() if key not in new_objs]
         for o in deleted_objs:
             archive_file(o, archive_path, backup_path)
